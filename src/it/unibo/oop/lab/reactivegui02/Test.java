@@ -4,11 +4,15 @@ import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.lang.reflect.InvocationTargetException;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+
+import org.w3c.dom.css.Counter;
 
 /**
  * Exercise on a reactive GUI.
@@ -29,7 +33,6 @@ public final class Test extends JFrame{
         canvas.add(this.downBtn);
         canvas.add(this.stopBtn);
         this.getContentPane().add(canvas);
-        //this.pack();
         this.setVisible(true);
         final Action counter = new Action();
         new Thread(counter).start();
@@ -37,26 +40,60 @@ public final class Test extends JFrame{
         this.upBtn.addActionListener(new ActionListener(){
             @Override
             public void actionPerformed(final ActionEvent e) {
-                counter.btnPress(e);
+                btnPress(e);
+                counter.changeValue(1);
             }
         });
         this.stopBtn.addActionListener(new ActionListener(){
             @Override
             public void actionPerformed(final ActionEvent e) {
-                counter.btnPress(e);
+                btnPress(e);
+                counter.forcestop();
             }
         });
         this.downBtn.addActionListener(new ActionListener(){
             @Override
             public void actionPerformed(final ActionEvent e) {
-                counter.btnPress(e);
+                btnPress(e);
+                counter.changeValue(-1);
             }
         });
         
         
     }
+    
+    private void btnPress(ActionEvent e) {
+        var called = e.getSource();
+        if(called == upBtn) {
+            upBtn.setEnabled(false);
+            downBtn.setEnabled(true);
+        }
+        else if(called == downBtn) {
+            upBtn.setEnabled(true);
+            downBtn.setEnabled(false);
+        }
+        else if(called == stopBtn) {
+            upBtn.setEnabled(false);
+            downBtn.setEnabled(false);
+        }
+    }
+    
     private void newValue(final long value) {
-        this.display.setText(String.valueOf(value));
+        try {
+            SwingUtilities.invokeAndWait(new Runnable() {
+
+                @Override
+                public void run() {
+                    display.setText(String.valueOf(value));
+                    
+                }
+                
+            });
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     /*
@@ -96,38 +133,22 @@ public final class Test extends JFrame{
         
         @Override
         public void run() {
-            while(!this.stop) {
-                this.counter+=value;
-                newValue(this.counter);
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+            try {
+                while(!this.stop) {
+                    this.counter+=value;
+                    newValue(this.counter);
+                    Thread.sleep(100);    
                 }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
             
         }
         public long getCounter() {
             return this.counter;
         }
-        
-        private void btnPress(ActionEvent e) {
-            var called = e.getSource();
-            if(called == upBtn) {
-                upBtn.setEnabled(false);
-                downBtn.setEnabled(true);
-                this.value = 1;
-            }
-            else if(called == downBtn) {
-                upBtn.setEnabled(true);
-                downBtn.setEnabled(false);
-                this.value = -1;
-            }
-            else if(called == stopBtn) {
-                upBtn.setEnabled(false);
-                downBtn.setEnabled(false);
-                forcestop();
-            }
+        public void changeValue(final int value){
+            this.value = value;
         }
         public void forcestop() {
             this.stop = true;
